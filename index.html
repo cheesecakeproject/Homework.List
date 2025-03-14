@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homework Record</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="font-sans bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-200 min-h-screen flex flex-col">
+    <!-- Dark mode detection -->
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+
+    <!-- Header -->
+    <header class="py-6 px-4 sm:px-6 md:px-8 border-b border-gray-200 dark:border-gray-800">
+        <h1 class="text-2xl sm:text-3xl font-semibold text-center">Homework Record</h1>
+    </header>
+
+    <!-- Main content -->
+    <main class="flex-grow p-4 sm:p-6 md:p-8 flex flex-col items-center">
+        <!-- Calendar controls -->
+        <div class="w-full max-w-3xl flex justify-between items-center mb-6">
+            <button id="prevMonth" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <h2 id="monthYear" class="text-xl font-medium"></h2>
+            <button id="nextMonth" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Calendar -->
+        <div class="w-full max-w-3xl">
+            <!-- Days of the week -->
+            <div class="grid grid-cols-7 text-center font-medium mb-2">
+                <div class="py-2">Sun</div>
+                <div class="py-2">Mon</div>
+                <div class="py-2">Tue</div>
+                <div class="py-2">Wed</div>
+                <div class="py-2">Thu</div>
+                <div class="py-2">Fri</div>
+                <div class="py-2">Sat</div>
+            </div>
+            
+            <!-- Calendar grid -->
+            <div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
+        </div>
+    </main>
+
+    <!-- Admin login button -->
+    <footer class="p-4 sm:p-6 md:p-8 border-t border-gray-200 dark:border-gray-800">
+        <div class="w-full max-w-md mx-auto">
+            <a href="/login.html" class="block w-full bg-primary hover:bg-opacity-90 text-white font-medium py-3 px-4 rounded-lg transition-colors text-center">
+                Admin Login
+            </a>
+        </div>
+    </footer>
+
+    <!-- Calendar script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables to track current month and year
+            let currentDate = new Date();
+            let currentMonth = currentDate.getMonth();
+            let currentYear = currentDate.getFullYear();
+            
+            // DOM elements
+            const monthYearElement = document.getElementById('monthYear');
+            const calendarGrid = document.getElementById('calendarGrid');
+            const prevMonthButton = document.getElementById('prevMonth');
+            const nextMonthButton = document.getElementById('nextMonth');
+            
+            // Add event listeners for navigation buttons
+            prevMonthButton.addEventListener('click', () => {
+                currentMonth--;
+                if (currentMonth < 0) {
+                    currentMonth = 11;
+                    currentYear--;
+                }
+                renderCalendar();
+            });
+            
+            nextMonthButton.addEventListener('click', () => {
+                currentMonth++;
+                if (currentMonth > 11) {
+                    currentMonth = 0;
+                    currentYear++;
+                }
+                renderCalendar();
+            });
+            
+            // Format date as ddmmyyyy
+            function formatDate(date) {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}${month}${year}`;
+            }
+            
+            // Generate the calendar
+            function renderCalendar() {
+                // Update month and year display
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                monthYearElement.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+                
+                // Clear the calendar grid
+                calendarGrid.innerHTML = '';
+                
+                // Get the first day of the month
+                const firstDay = new Date(currentYear, currentMonth, 1);
+                
+                // Get the last day of the month
+                const lastDay = new Date(currentYear, currentMonth + 1, 0);
+                
+                // Get the day of the week for the first day (0-6, where 0 is Sunday)
+                const firstDayOfWeek = firstDay.getDay();
+                
+                // Calculate total days in the grid (previous month days + current month days)
+                const totalCells = 42; // 6 rows of 7 days
+                
+                // Create cells for all days
+                for (let i = 0; i < totalCells; i++) {
+                    // Calculate the date for this cell
+                    const dayOffset = i - firstDayOfWeek;
+                    const cellDate = new Date(currentYear, currentMonth, dayOffset + 1);
+                    
+                    // Check if this date is in the current month
+                    const isCurrentMonth = cellDate.getMonth() === currentMonth;
+                    
+                    // Check if this is today
+                    const today = new Date();
+                    const isToday = 
+                        cellDate.getDate() === today.getDate() && 
+                        cellDate.getMonth() === today.getMonth() && 
+                        cellDate.getFullYear() === today.getFullYear();
+                    
+                    // Create the day cell
+                    const dayCell = document.createElement('div');
+                    dayCell.className = `
+                        relative p-2 h-14 flex items-center justify-center rounded-lg
+                        ${isCurrentMonth ? 'hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer' : 'text-gray-400 dark:text-gray-600'}
+                        ${isToday ? 'bg-primary bg-opacity-10 dark:bg-opacity-20' : ''}
+                        ${isCurrentMonth ? 'font-medium' : 'font-normal'}
+                    `;
+                    
+                    // Add day number
+                    dayCell.textContent = cellDate.getDate();
+                    
+                    // Add click handler for current month days
+                    if (isCurrentMonth) {
+                        dayCell.addEventListener('click', () => {
+                            const formattedDate = formatDate(cellDate);
+                            window.location.href = `/see/see.html?date=${formattedDate}`;
+                        });
+                    }
+                    
+                    // Add cell to the grid
+                    calendarGrid.appendChild(dayCell);
+                    
+                    // Break after 6 rows
+                    if (i === 41) break; 
+                }
+            }
+            
+            // Initial render
+            renderCalendar();
+        });
+    </script>
+</body>
+</html>
