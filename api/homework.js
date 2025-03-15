@@ -6,8 +6,13 @@ if (!process.env.EDGE_CONFIG) {
   console.error('EDGE_CONFIG environment variable is missing');
 }
 
-// Create Edge Config client
-const edgeConfig = createClient(process.env.EDGE_CONFIG);
+// Create Edge Config client with robust error handling
+let edgeConfig;
+try {
+  edgeConfig = createClient(process.env.EDGE_CONFIG);
+} catch (error) {
+  console.error('Failed to initialize Edge Config client:', error);
+}
 
 // Helper function to verify JWT token
 const verifyToken = (token) => {
@@ -19,7 +24,30 @@ const verifyToken = (token) => {
   }
 };
 
+// Helper function to authenticate requests
+const authenticate = async (req, res) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { authenticated: false, message: 'Authentication required' };
+  }
+  
+  const token = authHeader.split(' ')[1];
+  const decoded = verifyToken(token);
+  
+  if (!decoded || !decoded.admin) {
+    return { authenticated: false, message: 'Invalid or expired token' };
+  }
+  
+  return { authenticated: true, user: decoded };
+};
+
 export default async function handler(req, res) {
+  // Handle error if Edge Config is not initialized
+  if (!edgeConfig) {
+    return res.status(500).json({ message: 'Server configuration error: Edge Config not initialized' });
+  }
+
   // Handle GET request (retrieve homework)
   if (req.method === 'GET') {
     const { date } = req.query;
@@ -44,28 +72,11 @@ export default async function handler(req, res) {
     try {
       // Log the request data for debugging
       console.log('Request body:', req.body);
-      console.log('Auth header:', req.headers.authorization);
       
-      // Verify authentication token
-      const authHeader = req.headers.authorization;
-      
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-      
-      const token = authHeader.split(' ')[1];
-      
-      try {
-        // Log JWT value for debugging
-        console.log('Using JWT_VALUE:', process.env.JWT_VALUE ? 'exists' : 'missing');
-        const decoded = verifyToken(token);
-        
-        if (!decoded || !decoded.admin) {
-          return res.status(401).json({ message: 'Invalid or expired token' });
-        }
-      } catch (tokenError) {
-        console.error('Token verification error:', tokenError);
-        return res.status(401).json({ message: 'Token verification failed' });
+      // Authenticate request
+      const authResult = await authenticate(req, res);
+      if (!authResult.authenticated) {
+        return res.status(401).json({ message: authResult.message });
       }
       
       const { date, id, content } = req.body;
@@ -99,6 +110,46 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error('Error in POST handler:', error);
       return res.status(500).json({ message: 'Failed to add homework data', error: error.message });
+    }
+  }
+  
+  // Handle DELETE request (delete homework)
+  if (req.method === 'DELETE') {
+    try {
+      // Authenticate request
+      const authResult = await authenticate(req, res);
+      if (!authResult.authenticated) {
+        return res.status(401).json({ message: authResult.message });
+      }
+      
+      const { date, id } = req.query;
+      
+      if (!date || !id) {
+        return res.status(400).json({ message: 'Date and ID parameters are required' });
+      }
+      
+      // Get existing data for this date
+      const existingData = await edgeConfig.get(date) || { items: [] };
+      
+      // Find and remove the item with the specified ID
+      const filteredItems = existingData.items.filter(item => item.id !== id);
+      
+      // Check if any items were removed
+      if (filteredItems.length === existingData.items.length) {
+        return res.status(404).json({ message: 'Homework item not found' });
+      }
+      
+      // Update data in Edge Config
+      const updatedData = {
+        items: filteredItems
+      };
+      
+      await edgeConfig.set(date, updatedData);
+      
+      return res.status(200).json({ message: 'Homework deleted successfully' });
+    } catch (error) {
+      console.error('Error in DELETE handler:', error);
+      return res.status(500).json({ message: 'Failed to delete homework data', error: error.message });
     }
   }
   
