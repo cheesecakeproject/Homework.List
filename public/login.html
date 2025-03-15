@@ -55,6 +55,7 @@
                 <div id="errorMessage" class="text-red-500 text-center hidden"></div>
                 
                 <button
+                    id="loginButton"
                     type="submit"
                     class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                 >
@@ -96,16 +97,28 @@
         // Login functionality
         document.addEventListener('DOMContentLoaded', () => {
             const loginForm = document.getElementById('loginForm');
+            const loginButton = document.getElementById('loginButton');
             const errorMessage = document.getElementById('errorMessage');
             
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
+                // Clear previous error
+                errorMessage.classList.add('hidden');
+                
+                // Disable button and show loading state
+                loginButton.disabled = true;
+                loginButton.innerHTML = `
+                    <svg class="animate-spin h-5 w-5 mr-2 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Logging in...
+                `;
+                
                 const passcode = document.getElementById('passcode').value;
                 
                 try {
-                    // In the real version, this would be an API endpoint that validates the passcode
-                    // and returns a JWT token if valid
                     const response = await fetch('/api/auth', {
                         method: 'POST',
                         headers: {
@@ -114,7 +127,21 @@
                         body: JSON.stringify({ passcode }),
                     });
                     
-                    const data = await response.json();
+                    let data;
+                    
+                    try {
+                        // Try to parse JSON response
+                        const responseText = await response.text();
+                        try {
+                            data = JSON.parse(responseText);
+                        } catch (parseError) {
+                            console.error('Failed to parse response:', responseText);
+                            throw new Error(`Invalid server response: ${responseText.substring(0, 100)}...`);
+                        }
+                    } catch (jsonError) {
+                        // Handle non-JSON responses
+                        throw new Error('Server returned an invalid response format');
+                    }
                     
                     if (response.ok) {
                         // Store the token in localStorage
@@ -123,14 +150,24 @@
                         // Redirect to admin page
                         window.location.href = '/admin.html';
                     } else {
-                        // Show error message
-                        errorMessage.textContent = data.message || 'Invalid passcode';
+                        // Show error message from server
+                        errorMessage.textContent = data.message || 'Authentication failed';
                         errorMessage.classList.remove('hidden');
+                        
+                        // Reset button
+                        loginButton.disabled = false;
+                        loginButton.textContent = 'Login';
                     }
                 } catch (error) {
                     console.error('Login error:', error);
-                    errorMessage.textContent = 'An error occurred. Please try again.';
+                    
+                    // Show user-friendly error message
+                    errorMessage.textContent = `Authentication error: ${error.message}`;
                     errorMessage.classList.remove('hidden');
+                    
+                    // Reset button
+                    loginButton.disabled = false;
+                    loginButton.textContent = 'Login';
                 }
             });
         });
