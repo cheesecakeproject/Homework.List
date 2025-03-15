@@ -1,5 +1,5 @@
 import { createClient } from '@vercel/edge-config';
-import { verify } from 'jsonwebtoken';
+import crypto from 'crypto';
 
 // Check if environment variable exists
 if (!process.env.EDGE_CONFIG) {
@@ -14,15 +14,38 @@ try {
   console.error('Failed to initialize Edge Config client:', error);
 }
 
-// Helper function to verify JWT token
-const verifyToken = (token) => {
+// Helper function to verify our custom token
+function verifyToken(token) {
   try {
-    return verify(token, process.env.JWT_VALUE);
+    // Use JWT_VALUE as our secret key, or create a fallback
+    const secret = process.env.JWT_VALUE || 'default-secret-key-for-development-only';
+    
+    // Split the token into parts
+    const [encodedPayload, signature] = token.split('.');
+    
+    // Decode the payload
+    const payloadStr = Buffer.from(encodedPayload, 'base64').toString();
+    const payload = JSON.parse(payloadStr);
+    
+    // Check if token is expired
+    if (payload.exp < Date.now()) {
+      return null; // Token expired
+    }
+    
+    // Verify the signature
+    const hmac = crypto.createHmac('sha256', secret);
+    const expectedSignature = hmac.update(payloadStr).digest('hex');
+    
+    if (signature !== expectedSignature) {
+      return null; // Invalid signature
+    }
+    
+    return payload.data;
   } catch (error) {
     console.error('Token verification error:', error);
     return null;
   }
-};
+}
 
 // Helper function to authenticate requests
 const authenticate = async (req, res) => {
@@ -70,9 +93,6 @@ export default async function handler(req, res) {
   // Handle POST request (add homework)
   if (req.method === 'POST') {
     try {
-      // Log the request data for debugging
-      console.log('Request body:', req.body);
-      
       // Authenticate request
       const authResult = await authenticate(req, res);
       if (!authResult.authenticated) {
@@ -84,9 +104,6 @@ export default async function handler(req, res) {
       if (!date || !id || !content) {
         return res.status(400).json({ message: 'Date, ID, and content are required' });
       }
-      
-      // Log Edge Config access
-      console.log('Using EDGE_CONFIG:', process.env.EDGE_CONFIG ? 'exists' : 'missing');
       
       // Get existing data for this date
       const existingData = await edgeConfig.get(date) || { items: [] };

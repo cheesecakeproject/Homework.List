@@ -4,8 +4,7 @@
   "description": "Homework Record Application",
   "private": true,
   "dependencies": {
-    "@vercel/edge-config": "^0.4.1",
-    "jsonwebtoken": "^9.0.2"
+    "@vercel/edge-config": "^0.4.1"
   },
   "scripts": {
     "build": "echo 'No build step required'"
