@@ -1,4 +1,15 @@
-"dependencies": {
-  "@vercel/edge-config": "^0.4.1",
-  "jsonwebtoken": "^9.0.2"
+{
+  "name": "homework-record",
+  "version": "1.0.0",
+  "description": "Homework Record Application",
+  "private": true,
+  "dependencies": {
+    "@vercel/edge-config": "^0.4.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  }
 }
